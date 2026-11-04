@@ -1,5 +1,120 @@
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
+export interface ApiSuccess<T> {
+  success: true;
+  data: T;
+}
+
+export interface ApiFailure {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+  };
+}
+
+export interface ApiHealth {
+  status: string;
+  application: string;
+  version: string;
+}
+
+export interface ApiCommitSummary {
+  hash: string;
+  shortHash: string;
+  author: string;
+  date: string;
+  message: string;
+  branch: string | null;
+  changedFileCount: number | null;
+  insertions: number | null;
+  deletions: number | null;
+  statsAvailable: boolean;
+}
+
+export interface ApiRepository {
+  id: string;
+  name: string;
+  path: string;
+  branch: string | null;
+  latestCommit: {
+    hash: string;
+    shortHash: string;
+    author: string;
+    date: string;
+    message: string;
+  } | null;
+  commitCount: number;
+  commitCountTruncated: boolean;
+  createdAt: string;
+}
+
+export interface ApiRepositoryStatus {
+  id: string;
+  branch: string | null;
+  isDirty: boolean;
+  stagedFileCount: number;
+  modifiedFileCount: number;
+  untrackedFileCount: number;
+  untrackedFileCountTruncated: boolean;
+  commitCount: number;
+  commitCountTruncated: boolean;
+}
+
+export interface ApiCommitPage {
+  items: ApiCommitSummary[];
+  pagination: {
+    page: number;
+    perPage: number;
+    total: number | null;
+    hasMore: boolean;
+    truncated: boolean;
+  };
+}
+
+export interface ApiCommitFile {
+  path: string;
+  previousPath: string | null;
+  changeType: "added" | "modified" | "deleted" | "renamed";
+}
+
+export interface ApiCommitDetail extends ApiCommitSummary {
+  parents: Array<{
+    hash: string;
+    shortHash: string;
+    message: string;
+  }>;
+  files: ApiCommitFile[];
+  addedFiles: ApiCommitFile[];
+  modifiedFiles: ApiCommitFile[];
+  deletedFiles: ApiCommitFile[];
+  renamedFiles: ApiCommitFile[];
+  filesTruncated: boolean;
+}
+
+export interface ApiCompareFile {
+  path: string;
+  previousPath: string | null;
+  changeType: "added" | "modified" | "deleted" | "renamed";
+  additions: number | null;
+  deletions: number | null;
+  binary: boolean;
+  truncated: boolean;
+  diff: string;
+}
+
+export interface ApiComparison {
+  baseCommit: ApiCommitSummary;
+  targetCommit: ApiCommitSummary;
+  files: ApiCompareFile[];
+  filesTruncated: boolean;
+  diffTruncated: boolean;
+  limits: {
+    maxFiles: number;
+    maxDiffResponseBytes: number;
+  };
+}
+
 export interface Repository {
   id: string;
   name: string;
