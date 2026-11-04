@@ -57,20 +57,22 @@ def test_analysis_reports_changed_python_lines_and_rule_evidence(
     )
     assert finding["lineSide"] == "new"
     assert finding["change"] == "added"
+    assert finding["findingDisposition"] == "introduced"
     assert finding["evidence"] == "result = eval(user_input)"
     assert finding["evidenceTruncated"] is False
 
 
-def test_analysis_applies_all_documented_pattern_rules(
+def test_analysis_dispatches_all_rules_and_marks_credential_literals_as_heuristics(
     client, repository, connected_repository
 ):
     source = (
+        "result = eval(value)\n"
         "subprocess.run(command, shell=True)\n"
         "try:\n"
         "    run()\n"
         "except:\n"
         "    pass\n"
-        'password = "hardcoded-value"\n'
+        'password = "example-placeholder"\n'
     )
     commit = _commit(repository, "Add potentially problematic patterns", {"patterns.py": source})
 
@@ -78,11 +80,44 @@ def test_analysis_applies_all_documented_pattern_rules(
 
     assert response.status_code == 200
     findings = response.get_json()["data"]["findings"]
+    assert {item["ruleId"] for item in findings} == {
+        "PY001",
+        "PY002",
+        "PY003",
+        "PY004",
+    }
     assert [(item["ruleId"], item["lineNumber"]) for item in findings] == [
-        ("PY002", 1),
-        ("PY003", 4),
-        ("PY004", 6),
+        ("PY001", 1),
+        ("PY002", 2),
+        ("PY003", 5),
+        ("PY004", 7),
     ]
+    credential_finding = findings[3]
+    assert credential_finding["evidence"] == 'password = "example-placeholder"'
+    assert "heuristic warning only" in credential_finding["explanation"].lower()
+    assert "not proof" in credential_finding["explanation"].lower()
+
+
+def test_analysis_detects_multiline_subprocess_shell_argument_without_string_matches(
+    client, repository, connected_repository
+):
+    source = (
+        "subprocess.run(\n"
+        "    command,\n"
+        "    shell=True,\n"
+        ")\n"
+        'note = "subprocess.run(command, shell=True)"\n'
+    )
+    commit = _commit(repository, "Add multiline subprocess invocation", {"process.py": source})
+
+    response = _analysis(client, connected_repository["id"], commit)
+
+    assert response.status_code == 200
+    findings = response.get_json()["data"]["findings"]
+    assert [(item["ruleId"], item["lineNumber"], item["evidence"]) for item in findings] == [
+        ("PY002", 3, "    shell=True,")
+    ]
+    assert findings[0]["findingDisposition"] == "introduced"
 
 
 def test_analysis_uses_old_and_new_line_numbers_for_modified_code(
@@ -150,6 +185,29 @@ def test_analysis_handles_renames_and_deleted_python_files(
     assert deleted_payload["files"][0]["changeType"] == "deleted"
     assert deleted_payload["files"][0]["changedLines"][0]["lineSide"] == "old"
     assert deleted_payload["findings"][0]["change"] == "deleted"
+    assert deleted_payload["findings"][0]["findingDisposition"] == "removed"
+
+
+def test_analysis_marks_deleted_multiline_subprocess_pattern_as_removed(
+    client, repository, connected_repository
+):
+    code = "subprocess.run(\n    command,\n    shell=True,\n)\n"
+    _commit(repository, "Add shell subprocess call", {"process.py": code})
+    changed = _commit(
+        repository,
+        "Remove shell subprocess option",
+        {"process.py": "subprocess.run(\n    command,\n)\n"},
+    )
+
+    response = _analysis(client, connected_repository["id"], changed)
+
+    assert response.status_code == 200
+    finding = response.get_json()["data"]["findings"][0]
+    assert finding["ruleId"] == "PY002"
+    assert finding["lineNumber"] == 3
+    assert finding["lineSide"] == "old"
+    assert finding["change"] == "deleted"
+    assert finding["findingDisposition"] == "removed"
 
 
 def test_analysis_handles_root_commits(client, app):
