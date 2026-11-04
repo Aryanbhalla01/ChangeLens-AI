@@ -1,16 +1,19 @@
 import { useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import type { Repository } from "../../types";
+import type { ApiRepository } from "../../types";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 interface AppShellProps {
   children: ReactNode;
-  repositories: Repository[];
+  repositories: ApiRepository[];
   selectedRepository: string;
   searchQuery: string;
+  repositoryLoading: boolean;
+  connectionState: "checking" | "online" | "offline";
   onRepositoryChange: (repository: string) => void;
   onSearchChange: (query: string) => void;
+  onRetry: () => void;
 }
 
 const pageTitles: Record<string, string> = {
@@ -28,8 +31,11 @@ export function AppShell({
   repositories,
   selectedRepository,
   searchQuery,
+  repositoryLoading,
+  connectionState,
   onRepositoryChange,
   onSearchChange,
+  onRetry,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -40,16 +46,20 @@ export function AppShell({
       <div className="flex min-h-screen">
         <Sidebar
           collapsed={collapsed}
+          connectionState={connectionState}
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
           onToggle={() => setCollapsed((value) => !value)}
         />
         <div className="min-w-0 flex-1">
           <Topbar
+            connectionState={connectionState}
             onOpenMobileNavigation={() => setMobileOpen(true)}
             onRepositoryChange={onRepositoryChange}
+            onRetry={onRetry}
             onSearchChange={onSearchChange}
             repositories={repositories}
+            repositoryLoading={repositoryLoading}
             searchQuery={searchQuery}
             selectedRepository={selectedRepository}
             title={pageTitles[pathname] ?? "Overview"}

@@ -1,43 +1,129 @@
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { CommitExplorer } from "./pages/CommitExplorer";
 import { Overview } from "./pages/Overview";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
-import { getOverviewDashboard } from "./services/api";
-import type { OverviewDashboardData } from "./types";
+import { RepositoriesPage } from "./pages/RepositoriesPage";
+import { getHealth, getRepositories, getRepository, getRepositoryStatus } from "./services/api";
+import type { ApiRepository, ApiRepositoryStatus } from "./types";
+
+type ConnectionState = "checking" | "online" | "offline";
 
 function AppContent() {
-  const [data, setData] = useState<OverviewDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [repositories, setRepositories] = useState<ApiRepository[]>([]);
+  const [repositoryLoading, setRepositoryLoading] = useState(true);
+  const [repositoryError, setRepositoryError] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>("checking");
   const [selectedRepository, setSelectedRepository] = useState("all");
+  const [selectedRepositoryDetails, setSelectedRepositoryDetails] =
+    useState<ApiRepository | null>(null);
+  const [selectedRepositoryStatus, setSelectedRepositoryStatus] =
+    useState<ApiRepositoryStatus | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [detailsRefresh, setDetailsRefresh] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const loadOverview = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await getOverviewDashboard());
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "An unexpected error occurred while loading the overview.",
-      );
-    } finally {
-      setLoading(false);
+  const loadRepositories = useCallback(async () => {
+    setRepositoryLoading(true);
+    setRepositoryError(null);
+    setConnectionState("checking");
+    const [healthResult, repositoriesResult] = await Promise.allSettled([
+      getHealth(),
+      getRepositories(),
+    ]);
+
+    if (
+      healthResult.status === "fulfilled" ||
+      repositoriesResult.status === "fulfilled"
+    ) {
+      setConnectionState("online");
+    } else {
+      setConnectionState("offline");
     }
+
+    if (repositoriesResult.status === "fulfilled") {
+      setRepositories(repositoriesResult.value);
+    } else {
+      setRepositoryError(
+        repositoriesResult.reason instanceof Error
+          ? repositoriesResult.reason.message
+          : "Repositories could not be loaded.",
+      );
+    }
+    setRepositoryLoading(false);
   }, []);
 
   useEffect(() => {
-    void loadOverview();
-  }, [loadOverview]);
+    void loadRepositories();
+  }, [loadRepositories]);
+
+  useEffect(() => {
+    if (
+      !repositoryLoading &&
+      selectedRepository !== "all" &&
+      !repositories.some((repository) => repository.id === selectedRepository)
+    ) {
+      setSelectedRepository("all");
+    }
+  }, [repositories, repositoryLoading, selectedRepository]);
+
+  useEffect(() => {
+    if (selectedRepository === "all") {
+      setSelectedRepositoryDetails(null);
+      setSelectedRepositoryStatus(null);
+      setDetailsError(null);
+      setDetailsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setSelectedRepositoryDetails(null);
+    setSelectedRepositoryStatus(null);
+    setDetailsLoading(true);
+    setDetailsError(null);
+    void Promise.all([
+      getRepository(selectedRepository),
+      getRepositoryStatus(selectedRepository),
+    ])
+      .then(([details, status]) => {
+        if (!active) return;
+        setSelectedRepositoryDetails(details);
+        setSelectedRepositoryStatus(status);
+      })
+      .catch((requestError: unknown) => {
+        if (!active) return;
+        setDetailsError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Repository details could not be loaded.",
+        );
+        setSelectedRepositoryDetails(null);
+        setSelectedRepositoryStatus(null);
+      })
+      .finally(() => {
+        if (active) setDetailsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedRepository, detailsRefresh]);
+
+  const retrySelectedData = useCallback(() => {
+    void loadRepositories();
+    setDetailsRefresh((value) => value + 1);
+  }, [loadRepositories]);
 
   return (
     <AppShell
+      connectionState={connectionState}
       onRepositoryChange={setSelectedRepository}
+      onRetry={() => void loadRepositories()}
       onSearchChange={setSearchQuery}
-      repositories={data?.repositories ?? []}
+      repositories={repositories}
+      repositoryLoading={repositoryLoading}
       searchQuery={searchQuery}
       selectedRepository={selectedRepository}
     >
@@ -45,18 +131,49 @@ function AppContent() {
         <Route
           element={
             <Overview
-              data={data}
-              error={error}
-              loading={loading}
-              onRetry={() => void loadOverview()}
+              connectionState={connectionState}
+              detailsError={detailsError}
+              detailsLoading={detailsLoading}
+              onRetry={retrySelectedData}
+              onSelectRepository={setSelectedRepository}
+              repositories={repositories}
+              repositoryError={repositoryError}
+              repositoryLoading={repositoryLoading}
               searchQuery={searchQuery}
               selectedRepository={selectedRepository}
+              selectedRepositoryDetails={selectedRepositoryDetails}
+              selectedRepositoryStatus={selectedRepositoryStatus}
             />
           }
           path="/"
         />
-        <Route element={<PlaceholderPage title="Repositories" />} path="/repositories" />
-        <Route element={<PlaceholderPage title="Commit Explorer" />} path="/commits" />
+        <Route
+          element={
+            <RepositoriesPage
+              detailsError={detailsError}
+              detailsLoading={detailsLoading}
+              onRetry={retrySelectedData}
+              onSelectRepository={setSelectedRepository}
+              repositories={repositories}
+              repositoryError={repositoryError}
+              repositoryLoading={repositoryLoading}
+              selectedRepository={selectedRepository}
+              selectedRepositoryStatus={selectedRepositoryStatus}
+            />
+          }
+          path="/repositories"
+        />
+        <Route
+          element={
+            <CommitExplorer
+              repositories={repositories}
+              searchQuery={searchQuery}
+              selectedRepository={selectedRepository}
+              selectedRepositoryDetails={selectedRepositoryDetails}
+            />
+          }
+          path="/commits"
+        />
         <Route element={<PlaceholderPage title="Code Analysis" />} path="/analysis" />
         <Route element={<PlaceholderPage title="AI Insights" />} path="/insights" />
         <Route element={<PlaceholderPage title="Risk Center" />} path="/risk" />

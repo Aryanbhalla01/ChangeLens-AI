@@ -1,23 +1,29 @@
 import {
   Bell,
   ChevronDown,
+  CircleAlert,
+  CircleCheck,
+  CircleHelp,
   Menu,
   Search,
   Settings,
-  UserRound,
+  Laptop,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Repository } from "../../types";
+import type { ApiRepository } from "../../types";
 
 interface TopbarProps {
   title: string;
-  repositories: Repository[];
+  repositories: ApiRepository[];
   selectedRepository: string;
   searchQuery: string;
+  repositoryLoading: boolean;
+  connectionState: "checking" | "online" | "offline";
   onRepositoryChange: (repository: string) => void;
   onSearchChange: (query: string) => void;
   onOpenMobileNavigation: () => void;
+  onRetry: () => void;
 }
 
 export function Topbar({
@@ -25,11 +31,14 @@ export function Topbar({
   repositories,
   selectedRepository,
   searchQuery,
+  repositoryLoading,
+  connectionState,
   onRepositoryChange,
   onSearchChange,
   onOpenMobileNavigation,
+  onRetry,
 }: TopbarProps) {
-  const [openMenu, setOpenMenu] = useState<"repositories" | "notifications" | "user" | null>(
+  const [openMenu, setOpenMenu] = useState<"repositories" | "notifications" | "workspace" | null>(
     null,
   );
   const desktopSearchRef = useRef<HTMLInputElement>(null);
@@ -38,6 +47,15 @@ export function Topbar({
   const toggleMenu = (menu: NonNullable<typeof openMenu>) => {
     setOpenMenu((current) => (current === menu ? null : menu));
   };
+  const selectedRepositoryName =
+    repositories.find((repository) => repository.id === selectedRepository)?.name ??
+    "All repositories";
+  const ConnectionIcon =
+    connectionState === "online"
+      ? CircleCheck
+      : connectionState === "offline"
+        ? CircleAlert
+        : CircleHelp;
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -82,10 +100,10 @@ export function Topbar({
             size={15}
           />
           <input
-            aria-label="Search demo activity"
+            aria-label="Search repositories and commits"
             className="h-9 w-full rounded-lg border border-line bg-sidebar pl-9 pr-10 text-xs text-slate-200 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/10"
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search activity..."
+            placeholder="Search repositories and commits..."
             ref={desktopSearchRef}
             type="search"
             value={searchQuery}
@@ -104,14 +122,14 @@ export function Topbar({
           >
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan" />
             <span className="truncate">
-              {selectedRepository === "all" ? "All repositories" : selectedRepository}
+              {selectedRepository === "all" ? "All repositories" : selectedRepositoryName}
             </span>
             <ChevronDown className="shrink-0 text-slate-500" size={14} />
           </button>
           {openMenu === "repositories" && (
             <div className="popover right-0 w-64 p-1.5">
               <p className="px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-                Demo repositories
+                Local repositories
               </p>
               <button
                 className="menu-item w-full"
@@ -127,19 +145,54 @@ export function Topbar({
                   className="menu-item w-full"
                   key={repository.id}
                   onClick={() => {
-                    onRepositoryChange(repository.fullName);
+                    onRepositoryChange(repository.id);
                     setOpenMenu(null);
                   }}
                 >
-                  {repository.fullName}
+                  {repository.name}
                 </button>
               ))}
-              <p className="px-2.5 py-2 text-[10px] text-slate-600">
-                Demo data · not connected to Git
-              </p>
+              {repositoryLoading ? (
+                <p className="px-2.5 py-2 text-[10px] text-slate-500">Loading repositories…</p>
+              ) : repositories.length === 0 ? (
+                <p className="px-2.5 py-2 text-[10px] leading-relaxed text-slate-500">
+                  No registered repositories found.
+                </p>
+              ) : null}
+              <div className="my-1 border-t border-line" />
+              <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+                <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                  <ConnectionIcon
+                    className={
+                      connectionState === "online"
+                        ? "text-emerald-400"
+                        : connectionState === "offline"
+                          ? "text-rose-400"
+                          : "text-slate-500"
+                    }
+                    size={12}
+                  />
+                  API {connectionState}
+                </span>
+                <button className="text-[10px] text-blue-300 hover:text-blue-200" onClick={onRetry}>
+                  Retry
+                </button>
+              </div>
             </div>
           )}
         </div>
+
+        <span
+          aria-label={`API ${connectionState}`}
+          className={`hidden h-2 w-2 rounded-full md:block ${
+            connectionState === "online"
+              ? "bg-emerald-400"
+              : connectionState === "offline"
+                ? "bg-rose-400"
+                : "bg-slate-500"
+          }`}
+          title={`API ${connectionState}`}
+        />
 
         <div className="relative">
           <button
@@ -167,23 +220,23 @@ export function Topbar({
 
         <div className="relative">
           <button
-            aria-expanded={openMenu === "user"}
-            aria-label="Open account menu"
+            aria-expanded={openMenu === "workspace"}
+            aria-label="Open workspace menu"
             className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-elevated"
-            onClick={() => toggleMenu("user")}
+            onClick={() => toggleMenu("workspace")}
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-elevated text-[10px] font-semibold text-slate-300 ring-1 ring-line">
-              JD
+              CL
             </span>
             <ChevronDown className="hidden text-slate-500 sm:block" size={13} />
           </button>
-          {openMenu === "user" && (
+          {openMenu === "workspace" && (
             <div className="popover right-0 w-52 p-1.5">
               <div className="flex items-center gap-2 px-2.5 py-2">
-                <UserRound className="text-slate-500" size={15} />
+                <Laptop className="text-slate-500" size={15} />
                 <div>
-                  <p className="text-xs font-medium text-slate-200">Jordan Developer</p>
-                  <p className="text-[10px] text-slate-500">Preview account</p>
+                  <p className="text-xs font-medium text-slate-200">Local workspace</p>
+                  <p className="text-[10px] text-slate-500">ChangeLens API</p>
                 </div>
               </div>
               <div className="my-1 border-t border-line" />
@@ -202,10 +255,10 @@ export function Topbar({
       <div className="flex items-center gap-2 border-t border-line/60 px-4 py-2 md:hidden">
         <Search className="shrink-0 text-slate-500" size={14} />
         <input
-          aria-label="Search demo activity"
+          aria-label="Search repositories and commits"
           className="w-full bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-600"
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search demo activity..."
+          placeholder="Search repositories and commits..."
           ref={mobileSearchRef}
           type="search"
           value={searchQuery}

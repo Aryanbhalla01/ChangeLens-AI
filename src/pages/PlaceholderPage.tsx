@@ -12,12 +12,13 @@ export function PlaceholderPage({ title }: PlaceholderPageProps) {
         <Construction size={21} />
       </span>
       <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.17em] text-cyan">
-        Later milestone
+        Not implemented
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-100">{title}</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-        This destination is included in the navigation preview, but its product page is outside
-        the current frontend foundation milestone.
+        {title === "AI Insights" || title === "Risk Center"
+          ? "AI analysis and risk scoring are not implemented. No insights or risk scores are being generated."
+          : `${title} is not available in this milestone. Repository, status, commit history, and comparison data are available in the implemented views.`}
       </p>
       <Link className="button-secondary mt-6" to="/">
         <ArrowLeft size={14} /> Back to overview

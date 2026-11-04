@@ -1,11 +1,13 @@
 import {
   Activity,
-  BookOpenCheck,
+  CircleAlert,
+  CircleCheck,
   ChevronLeft,
   ChevronRight,
   GitCommitHorizontal,
   GitFork,
   LayoutDashboard,
+  LoaderCircle,
   Settings,
   ShieldAlert,
   Sparkles,
@@ -15,6 +17,7 @@ import { NavLink } from "react-router-dom";
 interface SidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
+  connectionState: "checking" | "online" | "offline";
   onToggle: () => void;
   onCloseMobile: () => void;
 }
@@ -31,6 +34,7 @@ const navigation = [
 export function Sidebar({
   collapsed,
   mobileOpen,
+  connectionState,
   onToggle,
   onCloseMobile,
 }: SidebarProps) {
@@ -67,7 +71,7 @@ export function Sidebar({
                 ChangeLens
               </span>
               <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-slate-500">
-                AI workspace
+                Repository workspace
               </span>
             </span>
           </NavLink>
@@ -152,11 +156,17 @@ export function Sidebar({
             }`}
           >
             <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-              <BookOpenCheck className="text-cyan" size={15} />
-              Frontend preview
+              {connectionState === "online" ? (
+                <CircleCheck className="text-emerald-400" size={15} />
+              ) : connectionState === "offline" ? (
+                <CircleAlert className="text-rose-400" size={15} />
+              ) : (
+                <LoaderCircle className="animate-spin text-slate-500" size={15} />
+              )}
+              Backend API · {connectionState}
             </div>
             <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-              Sample workspace data only. No repositories are connected.
+              Repository history is read from registered local repositories. AI and risk analysis are not implemented.
             </p>
           </div>
         </div>
