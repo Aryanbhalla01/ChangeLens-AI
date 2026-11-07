@@ -1,6 +1,8 @@
 import type {
   ApiCommitDetail,
   ApiCommitPage,
+  ApiAISummary,
+  ApiCommitRisk,
   ApiComparison,
   ApiFailure,
   ApiHealth,
@@ -104,6 +106,24 @@ export function getCommitDetails(
 ): Promise<ApiCommitDetail> {
   return request<ApiCommitDetail>(
     `/api/repositories/${encodeURIComponent(id)}/commits/${encodeURIComponent(hash)}`,
+  );
+}
+
+export function getCommitSummary(
+  id: string,
+  hash: string,
+): Promise<ApiAISummary> {
+  return request<ApiAISummary>(
+    `/api/repositories/${encodeURIComponent(id)}/commits/${encodeURIComponent(hash)}/summary`,
+  );
+}
+
+export function getCommitRisk(
+  repositoryId: string,
+  commitHash: string,
+): Promise<ApiCommitRisk> {
+  return request<ApiCommitRisk>(
+    `/api/repositories/${encodeURIComponent(repositoryId)}/commits/${encodeURIComponent(commitHash)}/risk`,
   );
 }
 

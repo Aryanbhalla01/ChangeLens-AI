@@ -92,6 +92,67 @@ export interface ApiCommitDetail extends ApiCommitSummary {
   filesTruncated: boolean;
 }
 
+export interface ApiAISummary {
+  available: boolean;
+  summary: string;
+  whatChanged: string | null;
+  whyItMatters: string | null;
+  importantFiles: string[];
+  suggestedReviewChecks: string[];
+}
+
+export type ApiRiskClassification = "low" | "moderate" | "high" | "critical";
+
+export interface ApiRiskPathCategory {
+  name: string;
+  score: number;
+  matchedPaths: string[];
+}
+
+interface ApiRiskFactorBase {
+  score: number;
+  maxScore: number;
+  explanation: string;
+}
+
+export type ApiRiskFactor =
+  | (ApiRiskFactorBase & {
+      name: "changedFiles";
+      value: number;
+    })
+  | (ApiRiskFactorBase & {
+      name: "changedLines";
+      additions: number;
+      deletions: number;
+      unavailableFileCount: number;
+    })
+  | (ApiRiskFactorBase & {
+      name: "sensitivePaths";
+      categories: ApiRiskPathCategory[];
+    })
+  | (ApiRiskFactorBase & {
+      name: "staticFindings";
+      severityCounts: Partial<Record<"critical" | "error" | "warning" | "notice" | "info", number>>;
+      removedFindingsExcluded: number;
+    });
+
+export interface ApiCommitRisk {
+  commit: ApiCommitSummary;
+  baseCommit: ApiCommitSummary | null;
+  score: number;
+  classification: ApiRiskClassification;
+  heuristic: true;
+  disclaimer: string;
+  factors: ApiRiskFactor[];
+  limitations: string[];
+  limits: {
+    maxFiles: number;
+    maxDiffResponseBytes: number;
+    maxChangedLines: number;
+    maxFindings: number;
+  };
+}
+
 export interface ApiCompareFile {
   path: string;
   previousPath: string | null;
