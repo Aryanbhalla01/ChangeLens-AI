@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { AIInsights } from "./pages/AIInsights";
 import { CommitExplorer } from "./pages/CommitExplorer";
 import { Overview } from "./pages/Overview";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { RepositoriesPage } from "./pages/RepositoriesPage";
+import { RiskCenter } from "./pages/RiskCenter";
 import { getHealth, getRepositories, getRepository, getRepositoryStatus } from "./services/api";
 import type { ApiRepository, ApiRepositoryStatus } from "./types";
 
@@ -175,8 +177,30 @@ function AppContent() {
           path="/commits"
         />
         <Route element={<PlaceholderPage title="Code Analysis" />} path="/analysis" />
-        <Route element={<PlaceholderPage title="AI Insights" />} path="/insights" />
-        <Route element={<PlaceholderPage title="Risk Center" />} path="/risk" />
+        <Route
+          element={
+            <AIInsights
+              onSelectRepository={setSelectedRepository}
+              repositories={repositories}
+              repositoryError={repositoryError}
+              repositoryLoading={repositoryLoading}
+              selectedRepository={selectedRepository}
+            />
+          }
+          path="/insights"
+        />
+        <Route
+          element={
+            <RiskCenter
+              onSelectRepository={setSelectedRepository}
+              repositories={repositories}
+              repositoryError={repositoryError}
+              repositoryLoading={repositoryLoading}
+              selectedRepository={selectedRepository}
+            />
+          }
+          path="/risk"
+        />
         <Route element={<PlaceholderPage title="Settings" />} path="/settings" />
         <Route element={<PlaceholderPage title="Page not found" />} path="*" />
       </Routes>
