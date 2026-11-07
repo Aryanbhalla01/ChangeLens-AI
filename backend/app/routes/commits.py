@@ -2,6 +2,7 @@
 
 from flask import Blueprint, current_app, jsonify, request
 
+from ..services.ai_summary_service import summarize_commit
 from ..services.git_service import get_commit_details, get_commit_history
 from ..utils.errors import ApiError
 
@@ -38,6 +39,14 @@ def history(repository_id: str):
 def detail(repository_id: str, commit_hash: str):
     return jsonify(
         {"success": True, "data": get_commit_details(repository_id, commit_hash)}
+    )
+
+
+@commits_bp.get("/<commit_hash>/summary")
+def summary(repository_id: str, commit_hash: str):
+    get_commit_details(repository_id, commit_hash)
+    return jsonify(
+        {"success": True, "data": summarize_commit(repository_id, commit_hash)}
     )
 
 
