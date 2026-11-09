@@ -1,6 +1,7 @@
 # ChangeLens AI
 
-Frontend foundation and Overview page for the first development milestone.
+ChangeLens AI frontend for the local Flask API, including public GitHub repository
+connections and repository analysis views.
 
 ## Run locally
 
@@ -9,8 +10,8 @@ npm install
 npm run dev
 ```
 
-The Overview uses clearly labeled local demo data. Repository integration, real analysis,
-risk scoring, and the remaining product pages are not implemented in this milestone.
+The Repositories page connects public GitHub repositories through the backend. See
+`backend\README.md` for local setup, managed storage configuration, and API details.
 
 To build the frontend for production:
 

@@ -16,6 +16,13 @@ def _allowed_roots() -> list[str]:
     return [entry.strip() for entry in configured.split(os.pathsep) if entry.strip()]
 
 
+def _positive_int(name: str, default: int) -> int:
+    value = int(os.getenv(name, str(default)))
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
 def resolve_database_uri(database_uri: str) -> str:
     """Resolve filesystem-backed SQLite paths relative to the backend directory."""
     url = make_url(database_uri)
@@ -53,6 +60,19 @@ class Config:
         f"sqlite:///{(BACKEND_ROOT / 'app' / 'instance' / 'changelens.sqlite3').as_posix()}",
     )
     ALLOWED_REPOSITORY_ROOTS = _allowed_roots()
+    MANAGED_REPOSITORY_ROOT = Path(
+        os.getenv(
+            "CHANGELENS_MANAGED_REPO_ROOT",
+            str(BACKEND_ROOT / "app" / "instance" / "repositories"),
+        )
+    ).expanduser()
+    MAX_PUBLIC_REPOSITORY_SIZE_BYTES = (
+        _positive_int("CHANGELENS_MAX_PUBLIC_REPOSITORY_SIZE_MB", 100) * 1024 * 1024
+    )
+    MAX_PUBLIC_REPOSITORY_CHECKOUT_BYTES = MAX_PUBLIC_REPOSITORY_SIZE_BYTES * 2
+    PUBLIC_REPOSITORY_CLONE_TIMEOUT_SECONDS = _positive_int(
+        "CHANGELENS_PUBLIC_REPOSITORY_CLONE_TIMEOUT_SECONDS", 120
+    )
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv(

@@ -8,7 +8,13 @@ import { Overview } from "./pages/Overview";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { RepositoriesPage } from "./pages/RepositoriesPage";
 import { RiskCenter } from "./pages/RiskCenter";
-import { getHealth, getRepositories, getRepository, getRepositoryStatus } from "./services/api";
+import {
+  connectPublicRepository,
+  getHealth,
+  getRepositories,
+  getRepository,
+  getRepositoryStatus,
+} from "./services/api";
 import type { ApiRepository, ApiRepositoryStatus } from "./types";
 
 type ConnectionState = "checking" | "online" | "offline";
@@ -119,6 +125,15 @@ function AppContent() {
     setDetailsRefresh((value) => value + 1);
   }, [loadRepositories]);
 
+  const handleConnectRepository = useCallback(
+    async (url: string) => {
+      const repository = await connectPublicRepository(url);
+      await loadRepositories();
+      setSelectedRepository(repository.id);
+    },
+    [loadRepositories],
+  );
+
   return (
     <AppShell
       connectionState={connectionState}
@@ -156,6 +171,7 @@ function AppContent() {
               detailsError={detailsError}
               detailsLoading={detailsLoading}
               onRetry={retrySelectedData}
+              onConnectRepository={handleConnectRepository}
               onSelectRepository={setSelectedRepository}
               repositories={repositories}
               repositoryError={repositoryError}

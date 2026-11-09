@@ -1,4 +1,12 @@
-import { AlertTriangle, GitBranch, GitCommitHorizontal, LoaderCircle, RefreshCw } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import {
+  AlertTriangle,
+  Github,
+  GitBranch,
+  GitCommitHorizontal,
+  LoaderCircle,
+  RefreshCw,
+} from "lucide-react";
 import type { ApiRepository, ApiRepositoryStatus } from "../types";
 
 interface RepositoriesPageProps {
@@ -9,6 +17,7 @@ interface RepositoriesPageProps {
   selectedRepositoryStatus: ApiRepositoryStatus | null;
   detailsLoading: boolean;
   detailsError: string | null;
+  onConnectRepository: (url: string) => Promise<void>;
   onSelectRepository: (id: string) => void;
   onRetry: () => void;
 }
@@ -21,9 +30,33 @@ export function RepositoriesPage({
   selectedRepositoryStatus,
   detailsLoading,
   detailsError,
+  onConnectRepository,
   onSelectRepository,
   onRetry,
 }: RepositoriesPageProps) {
+  const [repositoryUrl, setRepositoryUrl] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [connectSuccess, setConnectSuccess] = useState<string | null>(null);
+
+  async function handleConnect(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setConnecting(true);
+    setConnectError(null);
+    setConnectSuccess(null);
+    try {
+      await onConnectRepository(repositoryUrl.trim());
+      setConnectSuccess("Repository connected and selected.");
+      setRepositoryUrl("");
+    } catch (error) {
+      setConnectError(
+        error instanceof Error ? error.message : "The repository could not be connected.",
+      );
+    } finally {
+      setConnecting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -40,6 +73,61 @@ export function RepositoriesPage({
           Refresh
         </button>
       </div>
+
+      <form className="panel-card space-y-3 p-5" onSubmit={handleConnect}>
+        <div>
+          <label
+            className="flex items-center gap-2 text-sm font-medium text-slate-100"
+            htmlFor="github-repository-url"
+          >
+            <Github size={15} /> Connect a public GitHub repository
+          </label>
+          <p className="mt-1 text-xs text-slate-500">
+            Enter the canonical HTTPS URL, such as https://github.com/owner/repository.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            autoComplete="url"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-sidebar px-3 py-2 text-xs text-slate-100 outline-none placeholder:text-slate-600 focus:border-blue-500/60"
+            disabled={connecting}
+            id="github-repository-url"
+            onChange={(event) => setRepositoryUrl(event.target.value)}
+            placeholder="https://github.com/owner/repository"
+            type="url"
+            value={repositoryUrl}
+          />
+          <button
+            className="button-primary shrink-0"
+            disabled={connecting || !repositoryUrl.trim()}
+            type="submit"
+          >
+            {connecting ? (
+              <>
+                <LoaderCircle className="animate-spin" size={13} /> Connecting…
+              </>
+            ) : (
+              "Connect repository"
+            )}
+          </button>
+        </div>
+        {connecting && (
+          <p className="text-xs text-slate-400" role="status">
+            Checking repository size and cloning it into managed storage. This may take a few
+            minutes.
+          </p>
+        )}
+        {connectError && (
+          <p className="text-xs text-rose-300" role="alert">
+            {connectError}
+          </p>
+        )}
+        {connectSuccess && (
+          <p className="text-xs text-emerald-300" role="status">
+            {connectSuccess}
+          </p>
+        )}
+      </form>
 
       {repositoryError && (
         <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-200" role="alert">
@@ -60,7 +148,7 @@ export function RepositoriesPage({
           <GitBranch className="text-slate-500" size={23} />
           <p className="mt-3 text-sm font-medium text-slate-200">No repositories registered</p>
           <p className="mt-1 max-w-md text-xs text-slate-500">
-            Repository registration is not available in this read-only frontend milestone.
+            Connect a public GitHub repository above to explore its commits and analyses.
           </p>
         </div>
       ) : (

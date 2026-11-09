@@ -84,7 +84,11 @@ def get_registered_repository(repository_id: str) -> tuple[RepositoryRegistratio
 
 def _open_registered(registration: RepositoryRegistration) -> tuple[Path, Repo]:
     path, repository = validate_repository_path(
-        registration.path, current_app.config["ALLOWED_REPOSITORY_ROOTS"]
+        registration.path,
+        [
+            *current_app.config["ALLOWED_REPOSITORY_ROOTS"],
+            str(current_app.config["MANAGED_REPOSITORY_ROOT"]),
+        ],
     )
     if str(path) != registration.path:
         raise ApiError(
