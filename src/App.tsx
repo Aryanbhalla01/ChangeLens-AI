@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { AIInsights } from "./pages/AIInsights";
+import { Analysis } from "./pages/Analysis";
 import { CommitExplorer } from "./pages/CommitExplorer";
 import { Overview } from "./pages/Overview";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
@@ -176,7 +177,18 @@ function AppContent() {
           }
           path="/commits"
         />
-        <Route element={<PlaceholderPage title="Code Analysis" />} path="/analysis" />
+        <Route
+          element={
+            <Analysis
+              onSelectRepository={setSelectedRepository}
+              repositories={repositories}
+              repositoryError={repositoryError}
+              repositoryLoading={repositoryLoading}
+              selectedRepository={selectedRepository}
+            />
+          }
+          path="/analysis"
+        />
         <Route
           element={
             <AIInsights

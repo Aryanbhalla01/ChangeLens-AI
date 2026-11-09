@@ -153,6 +153,86 @@ export interface ApiCommitRisk {
   };
 }
 
+export interface ApiDependencyGraphNode {
+  path: string;
+  module: string;
+  present: boolean;
+}
+
+export interface ApiDependencyGraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface ApiDependency {
+  path: string;
+  depth: number;
+}
+
+export interface ApiDependencySyntaxError {
+  path: string;
+  line: number | null;
+  message: string;
+}
+
+export type ApiUnresolvedImportReason =
+  | "relative_import_outside_package"
+  | "ambiguous_local_module"
+  | "ambiguous_imported_name"
+  | "not_found_in_commit";
+
+export interface ApiUnresolvedImport {
+  path: string;
+  module: string;
+  level: number;
+  reason: ApiUnresolvedImportReason;
+  candidates: string[];
+}
+
+export interface ApiCommitDependencies {
+  commit: ApiCommitSummary;
+  baseCommit: ApiCommitSummary | null;
+  baseStrategy: "first_parent" | "empty_tree";
+  changedFiles: string[];
+  graph: {
+    nodes: ApiDependencyGraphNode[];
+    edges: ApiDependencyGraphEdge[];
+    directDependents: ApiDependency[];
+    indirectDependents: ApiDependency[];
+  };
+  syntaxErrors: ApiDependencySyntaxError[];
+  unresolvedImports: ApiUnresolvedImport[];
+  summary: {
+    pythonFilesScanned: number;
+    treeEntriesScanned: number;
+    totalBytesRead: number;
+    parsedFiles: number;
+    syntaxErrorCount: number;
+    unresolvedImportCount: number;
+    directDependentCount: number;
+    indirectDependentCount: number;
+    treeEntriesTruncated: boolean;
+    filesTruncated: boolean;
+    changedFilesTruncated: boolean;
+    importsTruncated: boolean;
+    edgesTruncated: boolean;
+    graphTruncated: boolean;
+    nodesTruncated: boolean;
+    truncated: boolean;
+  };
+  limits: {
+    maxTreeEntries: number;
+    maxFiles: number;
+    maxFileBytes: number;
+    maxTotalBytes: number;
+    maxNodes: number;
+    maxEdges: number;
+    maxImports: number;
+    maxDepth: number;
+    maxResults: number;
+  };
+}
+
 export interface ApiCompareFile {
   path: string;
   previousPath: string | null;
