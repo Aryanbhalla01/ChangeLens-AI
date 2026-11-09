@@ -46,6 +46,7 @@ def app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite://",
             "ALLOWED_REPOSITORY_ROOTS": [str(allowed_root)],
+            "MANAGED_REPOSITORY_ROOT": tmp_path / "managed-repositories",
             "CORS_ORIGINS": [],
         }
     )

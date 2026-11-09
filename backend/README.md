@@ -5,6 +5,15 @@ stored in SQLite. A stored path is revalidated against `CHANGELENS_ALLOWED_REPO_
 whenever it is used; changing the allowlist does not grant access to previously connected
 repositories outside the new roots.
 
+Public GitHub repositories can also be connected by their canonical HTTPS URL. The backend
+checks the repository's GitHub-reported size before cloning its full history into
+`CHANGELENS_MANAGED_REPO_ROOT`, then registers that managed working tree through the same
+read-only analysis APIs. GitHub public metadata and Git clone traffic require outbound HTTPS
+access from the backend. The default repository-size limit is 100 MiB and the default clone
+timeout is 120 seconds; the post-clone storage ceiling is twice the configured size limit.
+Managed storage must be writable and should be on a persistent server-side volume in
+deployments. Local repository connections remain restricted to `CHANGELENS_ALLOWED_REPO_ROOTS`.
+
 The API does not accept user-supplied shell commands, write to connected repositories,
 perform AI summaries, or calculate risk scores. Underlying Git operations may invoke a
 trusted repository's configured fsmonitor hook as described below. Configure only repository
@@ -50,6 +59,13 @@ Multiple Windows roots are separated by semicolons. Do not use a drive root or h
 unless the API genuinely needs access to all repositories beneath it. The default CORS
 allowlist is limited to the Vite development origins on localhost.
 
+Set `CHANGELENS_MANAGED_REPO_ROOT` to a writable directory reserved for public GitHub clones.
+The development default is `backend\app\instance\repositories`. For deployments, mount a
+persistent volume there or configure another dedicated path; do not make the managed root a
+user-controlled path or include it among local repository roots. Optional resource settings
+are `CHANGELENS_MAX_PUBLIC_REPOSITORY_SIZE_MB` (default `100`) and
+`CHANGELENS_PUBLIC_REPOSITORY_CLONE_TIMEOUT_SECONDS` (default `120`).
+
 ## Start the backend
 
 ```powershell
@@ -79,10 +95,10 @@ $env:VITE_API_BASE_URL = 'http://127.0.0.1:5000'
 npm.cmd run dev
 ```
 
-Only repositories already registered with the backend are shown; the frontend does not
-automatically connect filesystem paths. Repository selection, status, history, commit details,
-and bounded comparisons use live API data. AI insights and risk scoring remain unimplemented
-and are labeled as unavailable. The frontend does not call or assume an `/api/overview` endpoint.
+The repository page connects public GitHub URLs and lists repositories registered with the
+backend. Repository selection, status, history, commit details, and bounded comparisons use
+live API data. Local filesystem paths can still be registered through the backend API. The
+frontend does not call or assume an `/api/overview` endpoint.
 
 ## API conventions
 
@@ -124,9 +140,14 @@ Invoke-RestMethod http://127.0.0.1:5000/api/health
 
 ### Repositories
 
-- `POST /api/repositories/connect` — JSON body `{"path":"C:\\Users\\Jordan\\source\\my-repo"}`.
-  Returns `201` with repository ID, name/path, current branch, latest commit (or `null` for
-  an empty repository), bounded commit count, and registration time.
+- `POST /api/repositories/connect` — JSON body `{"path":"C:\\Users\\Jordan\\source\\my-repo"}`
+  for a local repository, or `{"url":"https://github.com/owner/repository"}` for a public
+  GitHub repository. Public URLs must use exactly the canonical HTTPS owner/repository path:
+  no credentials, query, fragment, trailing slash, `.git` suffix, or extra path components.
+  The backend applies the configured GitHub size limit, clones full history into the managed
+  root with a bounded timeout, and removes an incomplete clone on failure. Returns `201` with
+  repository ID, name/path, current branch, latest commit (or `null` for an empty repository),
+  bounded commit count, and registration time.
 - `GET /api/repositories` — registered repositories that are still valid and inside the
   configured roots. Registrations outside the active allowlist are omitted.
 - `GET /api/repositories/{repository_id}` — repository metadata.
@@ -137,6 +158,15 @@ Connect example:
 
 ```powershell
 $body = @{ path = 'C:\Users\Jordan\source\my-repo' } | ConvertTo-Json
+$repo = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/api/repositories/connect `
+  -ContentType 'application/json' -Body $body
+$repo.data.id
+```
+
+Public GitHub repository example:
+
+```powershell
+$body = @{ url = 'https://github.com/owner/repository' } | ConvertTo-Json
 $repo = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/api/repositories/connect `
   -ContentType 'application/json' -Body $body
 $repo.data.id
@@ -280,7 +310,9 @@ from any global user configuration.
 
 - This is a local development API without authentication. Keep the loopback binding and do not
   expose it to untrusted networks.
-- Repositories must be non-bare Git working trees below explicitly configured roots.
+- Local repositories must be non-bare Git working trees below explicitly configured roots.
+  Public repositories are cloned into the configured managed root and limited by GitHub's
+  size metadata, the clone timeout, and a post-clone storage check.
 - Only local branches are supported as history filters; remote refs and arbitrary Git revision
   expressions are intentionally unsupported.
 - Counts/history scans are bounded. Very large commits/comparisons can report unavailable

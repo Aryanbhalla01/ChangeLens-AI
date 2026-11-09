@@ -36,11 +36,15 @@ function isFailureEnvelope(value: unknown): value is ApiFailure {
   );
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${apiBaseUrl}${path}`, {
-      headers: { Accept: "application/json" },
+      ...init,
+      headers: {
+        Accept: "application/json",
+        ...init?.headers,
+      },
     });
   } catch {
     throw new Error(
@@ -74,6 +78,14 @@ export function getHealth(): Promise<ApiHealth> {
 
 export function getRepositories(): Promise<ApiRepository[]> {
   return request<ApiRepository[]>("/api/repositories");
+}
+
+export function connectPublicRepository(url: string): Promise<ApiRepository> {
+  return request<ApiRepository>("/api/repositories/connect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
 }
 
 export function getRepository(id: string): Promise<ApiRepository> {
