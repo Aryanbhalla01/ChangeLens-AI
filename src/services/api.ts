@@ -15,6 +15,14 @@ import type {
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://127.0.0.1:5000";
 
+export function getApiOrigin(): string {
+  try {
+    return new URL(apiBaseUrl).origin;
+  } catch {
+    return "Custom endpoint configured";
+  }
+}
+
 function isSuccessEnvelope<T>(value: unknown): value is ApiSuccess<T> {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;

@@ -8,6 +8,7 @@ import { Overview } from "./pages/Overview";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { RepositoriesPage } from "./pages/RepositoriesPage";
 import { RiskCenter } from "./pages/RiskCenter";
+import { SettingsPage } from "./pages/SettingsPage";
 import {
   connectPublicRepository,
   getHealth,
@@ -229,7 +230,16 @@ function AppContent() {
           }
           path="/risk"
         />
-        <Route element={<PlaceholderPage title="Settings" />} path="/settings" />
+        <Route
+          element={
+            <SettingsPage
+              repositories={repositories}
+              repositoryError={repositoryError}
+              repositoryLoading={repositoryLoading}
+            />
+          }
+          path="/settings"
+        />
         <Route element={<PlaceholderPage title="Page not found" />} path="*" />
       </Routes>
     </AppShell>
