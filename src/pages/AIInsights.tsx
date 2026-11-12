@@ -8,7 +8,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import type { ApiAISummary, ApiCommitPage, ApiCommitSummary, ApiRepository } from "../types";
+import type { ApiCommitInsights, ApiCommitPage, ApiCommitSummary, ApiRepository } from "../types";
 import { getCommitSummary, getCommits } from "../services/api";
 
 interface AIInsightsProps {
@@ -44,7 +44,7 @@ export function AIInsights({
   const [commitsRepository, setCommitsRepository] = useState<string | null>(null);
   const [commitsLoading, setCommitsLoading] = useState(false);
   const [commitsError, setCommitsError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<ApiAISummary | null>(null);
+  const [summary, setSummary] = useState<ApiCommitInsights | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryRefresh, setSummaryRefresh] = useState(0);
@@ -117,7 +117,7 @@ export function AIInsights({
       })
       .catch((error: unknown) => {
         if (active) {
-          setSummaryError(requestErrorMessage(error, "The AI summary could not be loaded."));
+          setSummaryError(requestErrorMessage(error, "Local insights could not be loaded."));
         }
       })
       .finally(() => {
@@ -147,10 +147,10 @@ export function AIInsights({
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-slate-100">
-            AI Insights
+            Local Commit Insights
           </h2>
           <p className="mt-1.5 text-xs text-slate-500">
-            Review a plain-English summary generated from a selected commit.
+            Deterministic summaries from commit metadata, bounded diffs, and existing static-analysis findings.
           </p>
         </div>
         <button
@@ -242,7 +242,7 @@ export function AIInsights({
             Select a repository and commit
           </p>
           <p className="mt-1 max-w-md text-xs text-slate-500">
-            Summaries are requested from the backend for the commit you choose.
+            Local insights are generated from the commit and its available diff.
           </p>
         </div>
       ) : commitsLoading && commitsRepository !== selectedRepository ? (
@@ -293,7 +293,7 @@ export function AIInsights({
                     className={summaryLoading ? "animate-spin" : ""}
                     size={13}
                   />
-                  Refresh summary
+                  Refresh insights
                 </button>
               </div>
             ) : <span />}
@@ -343,13 +343,13 @@ export function AIInsights({
               className="panel-card flex min-h-56 items-center justify-center gap-2 p-8 text-xs text-slate-400"
             >
               <LoaderCircle className="animate-spin" size={16} />
-              Generating summary…
+              Generating local insights…
             </div>
           ) : summary && !summary.available ? (
             <div className="panel-card flex min-h-56 flex-col items-center justify-center p-8 text-center">
               <AlertTriangle className="text-amber-300" size={23} />
               <p className="mt-3 text-sm font-medium text-slate-200">
-                AI summary unavailable
+                Local insights unavailable
               </p>
               <p className="mt-2 max-w-xl text-xs leading-relaxed text-amber-200">
                 {summary.summary}
@@ -357,11 +357,35 @@ export function AIInsights({
             </div>
           ) : summary?.available ? (
             <div className="grid gap-4 xl:grid-cols-2">
+              <p className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-2 text-[11px] font-medium text-cyan xl:col-span-2">
+                {summary.label}
+              </p>
               <InsightSection
                 icon={<Sparkles size={16} />}
-                title="What Changed"
+                title="Commit Summary"
               >
                 {summary.whatChanged}
+              </InsightSection>
+              <InsightSection
+                icon={<GitCommitHorizontal size={16} />}
+                title="Commit Metadata"
+              >
+                <dl className="space-y-3">
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-wide text-slate-500">
+                      Author
+                    </dt>
+                    <dd className="mt-1 text-slate-200">{summary.author || "Unknown author"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-wide text-slate-500">
+                      Commit message
+                    </dt>
+                    <dd className="mt-1 whitespace-pre-wrap text-slate-200">
+                      {summary.commitMessage || "(no commit message)"}
+                    </dd>
+                  </div>
+                </dl>
               </InsightSection>
               <InsightSection
                 icon={<CheckCircle2 size={16} />}
@@ -371,18 +395,80 @@ export function AIInsights({
               </InsightSection>
               <InsightSection
                 icon={<FileCode2 size={16} />}
-                title="Important Files"
+                title="Files Changed"
               >
+                <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+                  {summary.statistics.changedFileCount ?? summary.filesChanged.length} file(s) ·{" "}
+                  {summary.statistics.addedFileCount} added ·{" "}
+                  {summary.statistics.modifiedFileCount} modified ·{" "}
+                  {summary.statistics.deletedFileCount} deleted ·{" "}
+                  {summary.statistics.renamedFileCount} renamed
+                </p>
+                <p className="mb-3 text-[11px] text-slate-400">
+                  {summary.statistics.insertions === null || summary.statistics.deletions === null
+                    ? "Line-change counts unavailable"
+                    : `+${summary.statistics.insertions} insertions · -${summary.statistics.deletions} deletions`}
+                </p>
                 <ul className="space-y-2">
-                  {summary.importantFiles.map((path) => (
+                  {summary.filesChanged.map((file) => (
                     <li
-                      className="break-all rounded-lg border border-line bg-sidebar/60 px-3 py-2 font-mono text-[11px] text-cyan"
-                      key={path}
+                      className="rounded-lg border border-line bg-sidebar/60 px-3 py-2"
+                      key={`${file.changeType}:${file.path}`}
                     >
-                      {path}
+                      <p className="break-all font-mono text-[11px] text-cyan">
+                        {file.path}
+                      </p>
+                      <p className="mt-1 text-[10px] capitalize text-slate-500">
+                        {file.changeType}
+                        {file.additions !== null && file.deletions !== null
+                          ? ` · +${file.additions} / -${file.deletions}`
+                          : ""}
+                      </p>
                     </li>
                   ))}
                 </ul>
+                {(summary.statistics.filesTruncated || summary.statistics.diffTruncated) && (
+                  <p className="mt-3 text-[11px] text-amber-200">
+                    The file list or diff was limited by configured bounds.
+                  </p>
+                )}
+              </InsightSection>
+              <InsightSection
+                icon={<AlertTriangle size={16} />}
+                title="Existing Static-Analysis Findings"
+              >
+                {summary.riskFindings.length === 0 ? (
+                  <p>No existing static-analysis findings were reported for the available analysis.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {summary.riskFindings.map((finding, index) => (
+                      <li
+                        className="rounded-lg border border-line bg-sidebar/60 px-3 py-3"
+                        key={`${finding.ruleId}:${finding.path}:${finding.lineNumber}:${index}`}
+                      >
+                        <p className="font-medium text-slate-200">
+                          {finding.title} · {finding.severity}
+                        </p>
+                        <p className="mt-1 break-all font-mono text-[10px] text-cyan">
+                          {finding.path}:{finding.lineNumber} · {finding.findingDisposition}
+                        </p>
+                        <p className="mt-2 text-[11px] text-slate-400">
+                          {finding.explanation}
+                        </p>
+                        {finding.evidence && (
+                          <pre className="mt-2 overflow-x-auto rounded bg-canvas p-2 text-[10px] text-slate-300">
+                            {finding.evidence}
+                          </pre>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {summary.findingsTruncated && (
+                  <p className="mt-3 text-[11px] text-amber-200">
+                    Static-analysis results were limited by configured bounds.
+                  </p>
+                )}
               </InsightSection>
               <InsightSection
                 icon={<CheckCircle2 size={16} />}

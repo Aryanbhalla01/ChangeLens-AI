@@ -103,7 +103,7 @@ export function Overview({
       <div className="flex items-start gap-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.045] px-4 py-3">
         <ShieldAlert className="mt-0.5 shrink-0 text-amber-300" size={16} />
         <p className="text-[11px] leading-relaxed text-slate-400">
-          AI insights and risk scoring are <span className="font-medium text-slate-300">not implemented</span>.
+          Local commit insights and deterministic risk scoring are available in their dedicated views.
           This page shows repository and Git metadata only.
         </p>
       </div>

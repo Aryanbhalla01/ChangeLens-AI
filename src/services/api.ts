@@ -1,7 +1,7 @@
 import type {
   ApiCommitDetail,
   ApiCommitPage,
-  ApiAISummary,
+  ApiCommitInsights,
   ApiCommitRisk,
   ApiCommitDependencies,
   ApiComparison,
@@ -133,8 +133,8 @@ export function getCommitDetails(
 export function getCommitSummary(
   id: string,
   hash: string,
-): Promise<ApiAISummary> {
-  return request<ApiAISummary>(
+): Promise<ApiCommitInsights> {
+  return request<ApiCommitInsights>(
     `/api/repositories/${encodeURIComponent(id)}/commits/${encodeURIComponent(hash)}/summary`,
   );
 }

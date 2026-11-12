@@ -21,7 +21,7 @@ const pageTitles: Record<string, string> = {
   "/repositories": "Repositories",
   "/commits": "Commit Explorer",
   "/analysis": "Code Analysis",
-  "/insights": "AI Insights",
+  "/insights": "Local Commit Insights",
   "/risk": "Risk Center",
   "/settings": "Settings",
 };

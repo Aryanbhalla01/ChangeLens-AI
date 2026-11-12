@@ -27,7 +27,7 @@ const navigation = [
   { label: "Repositories", path: "/repositories", icon: GitFork },
   { label: "Commit Explorer", path: "/commits", icon: GitCommitHorizontal },
   { label: "Code Analysis", path: "/analysis", icon: Activity },
-  { label: "AI Insights", path: "/insights", icon: Sparkles },
+  { label: "Local Commit Insights", path: "/insights", icon: Sparkles },
   { label: "Risk Center", path: "/risk", icon: ShieldAlert },
 ];
 
@@ -166,7 +166,7 @@ export function Sidebar({
               Backend API · {connectionState}
             </div>
             <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-              Repository history is read from registered local repositories. AI and risk analysis are not implemented.
+              Commit insights use local metadata and bounded diffs. Risk scoring uses deterministic rules.
             </p>
           </div>
         </div>

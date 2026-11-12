@@ -16,8 +16,8 @@ export function PlaceholderPage({ title }: PlaceholderPageProps) {
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-100">{title}</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-        {title === "AI Insights" || title === "Risk Center"
-          ? "AI analysis and risk scoring are not implemented. No insights or risk scores are being generated."
+        {title === "Local Commit Insights" || title === "Risk Center"
+          ? "Local commit insights and risk scoring are available in their dedicated views."
           : `${title} is not available in this milestone. Repository, status, commit history, and comparison data are available in the implemented views.`}
       </p>
       <Link className="button-secondary mt-6" to="/">

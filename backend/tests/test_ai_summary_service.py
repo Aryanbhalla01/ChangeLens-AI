@@ -1,158 +1,139 @@
-import pytest
-
-from app.services import ai_summary_service
+from app.services.ai_summary_service import summarize_commit
 
 
-@pytest.mark.parametrize(
-    ("endpoint", "expected"),
-    [
-        ("https://provider.example/summarize", True),
-        ("http://localhost:8080/summarize", True),
-        ("http://api.localhost/summarize", True),
-        ("http://127.0.0.1:8080/summarize", True),
-        ("http://[::1]:8080/summarize", True),
-        ("http://provider.example/summarize", False),
-        ("http://localhost:invalid/summarize", False),
-        ("http://[invalid]/summarize", False),
-        ("http:///summarize", False),
-        ("not a URL", False),
-    ],
-)
-def test_http_endpoint_requires_https_or_local_http(endpoint, expected):
-    assert ai_summary_service._is_http_endpoint(endpoint) is expected
-
-
-def _provider_response():
-    return {
-        "what_changed": "A new file was added and the README was extended.",
-        "why_it_matters": "The project now documents the new behavior.",
-        "important_files": ["README.md", "added.txt"],
-        "suggested_review_checks": ["Confirm the documented behavior matches the implementation."],
-    }
-
-
-def test_summary_uses_bounded_commit_and_diff_and_formats_sections(
-    app, repository, connected_repository, monkeypatch
+def test_summary_includes_local_commit_metadata_stats_and_files(
+    app, repository, connected_repository
 ):
-    app.config.update(
-        AI_SUMMARY_API_URL="https://provider.example/summarize",
-        AI_SUMMARY_API_KEY="test-secret",
-    )
-    captured = {}
-
-    def fake_request(endpoint, api_key, payload, timeout, max_response_bytes):
-        captured.update(
-            endpoint=endpoint,
-            api_key=api_key,
-            payload=payload,
-            timeout=timeout,
-            max_response_bytes=max_response_bytes,
-        )
-        return _provider_response()
-
-    monkeypatch.setattr(ai_summary_service, "_request_provider", fake_request)
     with app.app_context():
-        result = ai_summary_service.summarize_commit(
+        result = summarize_commit(
             connected_repository["id"], repository["second"].hexsha
         )
 
     assert result["available"] is True
-    assert "What changed: A new file was added" in result["summary"]
-    assert "Why it matters: The project now documents" in result["summary"]
-    assert "Important files: README.md, added.txt" in result["summary"]
-    assert "Suggested review checks:" in result["summary"]
-    assert captured["api_key"] == "test-secret"
-    assert captured["payload"]["commit"]["hash"] == repository["second"].hexsha
-    assert {item["path"] for item in captured["payload"]["files"]} == {
+    assert result["source"] == "local_rules"
+    assert result["label"] == "Local, rule-based insights"
+    assert result["commitMessage"] == "Add a line and file"
+    assert result["author"] == "Test Author"
+    assert result["statistics"] == {
+        "changedFileCount": 2,
+        "insertions": 2,
+        "deletions": 0,
+        "addedFileCount": 1,
+        "modifiedFileCount": 1,
+        "deletedFileCount": 0,
+        "renamedFileCount": 0,
+        "filesTruncated": False,
+        "diffTruncated": False,
+    }
+    assert {item["path"] for item in result["filesChanged"]} == {
         "README.md",
         "added.txt",
     }
-    assert sum(len(item["diff"].encode("utf-8")) for item in captured["payload"]["files"]) <= app.config[
-        "MAX_DIFF_RESPONSE_BYTES"
+    assert "Add a line and file" in result["whatChanged"]
+    assert "Test Author" in result["whatChanged"]
+    assert "does not infer runtime behavior" in result["whyItMatters"]
+    assert result["importantFiles"] == ["README.md", "added.txt"]
+    assert result["suggestedReviewChecks"] == [
+        "Review the available diff for README.md.",
+        "Review the available diff for added.txt.",
     ]
 
 
-def test_summary_is_unavailable_without_provider_configuration(app, monkeypatch):
-    app.config.update(AI_SUMMARY_API_URL=None, AI_SUMMARY_API_KEY=None)
-    called = False
-
-    def fail_if_called(*_args, **_kwargs):
-        nonlocal called
-        called = True
-        raise AssertionError("provider must not be called")
-
-    monkeypatch.setattr(ai_summary_service, "_request_provider", fail_if_called)
-    with app.app_context():
-        result = ai_summary_service.summarize_commit("unused", "unused")
-
-    assert result["available"] is False
-    assert result["summary"].startswith("AI unavailable:")
-    assert result["whatChanged"] is None
-    assert called is False
-
-
-def test_summary_rejects_malformed_provider_response(
-    app, repository, connected_repository, monkeypatch
+def test_summary_handles_empty_commit_without_inventing_changes(
+    app, repository, connected_repository
 ):
-    app.config.update(
-        AI_SUMMARY_API_URL="https://provider.example/summarize",
-        AI_SUMMARY_API_KEY="test-secret",
-    )
-    monkeypatch.setattr(
-        ai_summary_service,
-        "_request_provider",
-        lambda *_args, **_kwargs: {"what_changed": "Incomplete response"},
-    )
+    repository["repo"].index.commit("Empty commit")
+    empty_hash = repository["repo"].head.commit.hexsha
 
     with app.app_context():
-        result = ai_summary_service.summarize_commit(
-            connected_repository["id"], repository["second"].hexsha
-        )
+        result = summarize_commit(connected_repository["id"], empty_hash)
 
-    assert result["available"] is False
-    assert result["summary"] == "AI unavailable: provider request failed."
+    assert result["available"] is True
+    assert result["commitMessage"] == "Empty commit"
+    assert result["statistics"]["changedFileCount"] == 0
+    assert result["statistics"]["insertions"] == 0
+    assert result["statistics"]["deletions"] == 0
+    assert result["filesChanged"] == []
     assert result["importantFiles"] == []
+    assert result["suggestedReviewChecks"] == []
+    assert "changed no files" in result["whatChanged"]
+    assert "diff is empty" in result["whatChanged"]
 
 
-def test_summary_rejects_unmodified_paths_from_provider(
+def test_summary_reports_deleted_files_and_deletion_counts(
+    app, repository, connected_repository
+):
+    with app.app_context():
+        result = summarize_commit(
+            connected_repository["id"], repository["third"].hexsha
+        )
+
+    assert result["statistics"]["changedFileCount"] == 1
+    assert result["statistics"]["addedFileCount"] == 0
+    assert result["statistics"]["modifiedFileCount"] == 0
+    assert result["statistics"]["deletedFileCount"] == 1
+    assert result["statistics"]["insertions"] == 0
+    assert result["statistics"]["deletions"] == 1
+    assert result["filesChanged"] == [
+        {
+            "path": "added.txt",
+            "previousPath": None,
+            "changeType": "deleted",
+            "additions": 0,
+            "deletions": 1,
+        }
+    ]
+
+
+def test_summary_includes_existing_static_analysis_findings(
     app, repository, connected_repository, monkeypatch
 ):
-    app.config.update(
-        AI_SUMMARY_API_URL="https://provider.example/summarize",
-        AI_SUMMARY_API_KEY="test-secret",
-    )
-    response = _provider_response()
-    response["important_files"] = ["not-changed.txt"]
+    finding = {
+        "ruleId": "PY003",
+        "title": "Bare exception handler",
+        "severity": "notice",
+        "path": "changed.py",
+        "lineNumber": 3,
+        "findingDisposition": "introduced",
+    }
     monkeypatch.setattr(
-        ai_summary_service, "_request_provider", lambda *_args, **_kwargs: response
+        "app.services.ai_summary_service.analyze_commit",
+        lambda *_args: {"findings": [finding], "summary": {"truncated": False}},
     )
 
     with app.app_context():
-        result = ai_summary_service.summarize_commit(
+        result = summarize_commit(
             connected_repository["id"], repository["second"].hexsha
         )
 
-    assert result["available"] is False
-    assert result["summary"].startswith("AI unavailable:")
+    assert result["riskFindings"] == [finding]
+    assert result["findingsTruncated"] is False
+    assert "Existing static-analysis findings: 1" in result["summary"]
 
 
-def test_summary_handles_provider_errors(
-    app, repository, connected_repository, monkeypatch
+def test_summary_respects_file_and_diff_limits_for_large_commits(
+    app, repository, connected_repository
 ):
+    repo = repository["repo"]
+    for index in range(4):
+        path = repository["path"] / f"large-{index}.txt"
+        path.write_text(("large diff line\n" * 20), encoding="utf-8")
+        repo.index.add([path.name])
+    large_commit = repo.index.commit("Add several large files")
     app.config.update(
-        AI_SUMMARY_API_URL="https://provider.example/summarize",
-        AI_SUMMARY_API_KEY="test-secret",
+        MAX_COMMIT_FILES=2,
+        MAX_COMPARE_FILES=2,
+        MAX_DIFF_RESPONSE_BYTES=32,
+        MAX_FILE_DIFF_BYTES=32,
     )
 
-    def fail_request(*_args, **_kwargs):
-        raise TimeoutError("sensitive provider details")
-
-    monkeypatch.setattr(ai_summary_service, "_request_provider", fail_request)
     with app.app_context():
-        result = ai_summary_service.summarize_commit(
-            connected_repository["id"], repository["second"].hexsha
-        )
+        result = summarize_commit(connected_repository["id"], large_commit.hexsha)
 
-    assert result["available"] is False
-    assert result["summary"] == "AI unavailable: provider request failed."
-    assert "sensitive provider details" not in result["summary"]
+    assert result["statistics"]["changedFileCount"] == 4
+    assert result["statistics"]["filesTruncated"] is True
+    assert result["statistics"]["diffTruncated"] is True
+    assert len(result["filesChanged"]) <= 2
+    assert "bounded file list" in result["whatChanged"]
+    assert "omitted by configured limits" in result["whyItMatters"]
+
