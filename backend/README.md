@@ -321,4 +321,6 @@ from any global user configuration.
   incomplete when diff/file/line limits are reached.
 - SQLite registrations persist locally, but registered repositories are not synchronized
   between machines.
-- AI insights and risk scoring are not implemented.
+- Commit insights are generated locally from commit metadata, bounded diffs, and the
+  existing bounded static-analysis findings. They are deterministic and do not infer
+  runtime behavior, bugs, or vulnerabilities. Risk scoring uses separate heuristic rules.

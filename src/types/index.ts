@@ -92,13 +92,54 @@ export interface ApiCommitDetail extends ApiCommitSummary {
   filesTruncated: boolean;
 }
 
-export interface ApiAISummary {
+export interface ApiCommitInsightFile {
+  path: string;
+  previousPath: string | null;
+  changeType: "added" | "modified" | "deleted" | "renamed";
+  additions: number | null;
+  deletions: number | null;
+}
+
+export interface ApiStaticAnalysisFinding {
+  ruleId: string;
+  title: string;
+  severity: string;
+  path: string;
+  previousPath: string | null;
+  lineNumber: number;
+  lineSide: "new" | "old";
+  change: "added" | "deleted";
+  findingDisposition: "introduced" | "removed";
+  explanation: string;
+  evidence: string;
+  evidenceTruncated: boolean;
+}
+
+export interface ApiCommitInsights {
   available: boolean;
   summary: string;
   whatChanged: string | null;
   whyItMatters: string | null;
   importantFiles: string[];
   suggestedReviewChecks: string[];
+  source: "local_rules";
+  label: string;
+  commitMessage: string;
+  author: string;
+  filesChanged: ApiCommitInsightFile[];
+  statistics: {
+    changedFileCount: number | null;
+    insertions: number | null;
+    deletions: number | null;
+    addedFileCount: number;
+    modifiedFileCount: number;
+    deletedFileCount: number;
+    renamedFileCount: number;
+    filesTruncated: boolean;
+    diffTruncated: boolean;
+  };
+  riskFindings: ApiStaticAnalysisFinding[];
+  findingsTruncated: boolean;
 }
 
 export type ApiRiskClassification = "low" | "moderate" | "high" | "critical";
